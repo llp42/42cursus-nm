@@ -127,7 +127,7 @@ int symbol_cmp(const void *a, const void *b)
 
 	sa = (const t_symbol *)a;
 	sb = (const t_symbol *)b;
-	return (strcmp(sa->name, sb->name));
+	return (strcoll(sa->name, sb->name));
 }
 
 int symbol_cmp_reverse(const void *a, const void *b)

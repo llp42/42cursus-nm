@@ -4,66 +4,42 @@
 
 ## Description
 
-`ft_nm` is a reimplementation of the Unix `nm` command: it lists the symbols
-held in an ELF binary's symbol table.
+A reimplementation of the Unix `nm` command: it lists the symbols held in an
+ELF binary's symbol table — the functions and variables an object defines, and
+the ones it still expects from elsewhere.
 
-Every compiled object carries a table naming the functions and variables it
-defines and the ones it still expects from elsewhere. `nm` is the tool that
-prints that table, and reading it is how you answer questions like "why does
-the linker say this symbol is undefined?" or "is this function actually in this
-library?".
+The project parses ELF directly, without `libelf` or `libbfd`, and reproduces
+the system `nm`'s output exactly: same symbol selection, type letters, ordering
+and padding. Input is untrusted, so every offset and length read from the file
+is bounds-checked against the mapping before it is followed; corrupted objects
+are rejected with a message rather than crashing.
 
-The goal of the project is to parse the ELF format directly — no `libelf`, no
-`libbfd` — from the file header down to the individual symbol entries, and to
-reproduce the system `nm`'s output exactly: same symbol selection, same type
-letters, same ordering, same padding. The input is untrusted, so every offset
-and length read from the file is validated against the mapped region before it
-is followed; a truncated or deliberately corrupted object must be rejected with
-a message rather than crash the program.
-
-Supported inputs are ELF32 and ELF64: executables, object files (`.o`) and
-shared libraries (`.so`). `.a` archives are outside the scope defined by the
-subject and are reported as `file format not recognized`.
+Handles ELF32 and ELF64 — executables, object files and shared libraries.
+`.a` archives are outside the subject's scope and are reported as
+`file format not recognized`.
 
 ## Instructions
 
-Build with `make`:
-
 ```bash
-make        # compile
-make clean  # remove object files
-make fclean # remove object files and binary
-make re     # recompile everything
+make        # compile           make fclean # ... and the binary
+make clean  # remove objects    make re     # rebuild
 ```
 
-The build needs only a C compiler and the standard library. It compiles with
+Only a C compiler and the standard library are needed. Builds with
 `-Wall -Wextra -Werror`.
 
-Run it on any ELF file:
-
-```bash
-./ft_nm [option(s)] [file(s)]
-```
-
-With no operand it reads `a.out`. Each output line is `[value] [type] [name]`;
-undefined symbols print spaces where the value would be.
-
 ```console
+$ ./ft_nm [option(s)] [file(s)]      # no operand reads a.out
+
 $ ./ft_nm ft_nm
 0000000000404e08 d _DYNAMIC
-0000000000404fe8 d _GLOBAL_OFFSET_TABLE_
 00000000004034a8 R _IO_stdin_used
-...
 00000000004024ed T main
-...
                  U printf@GLIBC_2.2.5
 ```
 
-(excerpt; symbols are sorted by name)
-
-Note that most system binaries on recent distributions are stripped, so they
-have no symbol table to print. Use object files, or binaries you compiled
-yourself, to see meaningful output.
+Each line is `[value] [type] [name]`; undefined symbols print spaces in place
+of a value. Most system binaries are stripped and will print `no symbols`.
 
 ## Options
 
@@ -75,162 +51,109 @@ yourself, to see meaningful output.
 | `-r` | Reverse the sort order          |
 | `-p` | Do not sort; symbol-table order |
 
-Flags may be combined (`-gp`) and may appear before or after the file operands.
-An unknown flag is an error.
-
-`-p` overrides `-r`, since there is no order left to reverse. `-g` and `-u`
-combine to select external undefined symbols. `-a` adds the section and
-source-file entries that are hidden by default; section symbols are named from
-the section header string table, because their own `st_name` is zero.
+Combinable (`-gp`), accepted before or after the operands. `-p` overrides `-r`.
+`-a` adds section and source-file entries; section symbols are named from the
+section header string table, since their own `st_name` is zero.
 
 ## Symbol types
 
-| Char | Meaning                  |
-|------|--------------------------|
-| `A`  | Absolute                 |
-| `B`  | BSS                      |
-| `C`  | Common                   |
-| `D`  | Initialized data         |
-| `N`  | Debug                    |
-| `R`  | Read-only data           |
-| `T`  | Text                     |
-| `U`  | Undefined                |
-| `V`  | Weak object (defined)    |
-| `W`  | Weak symbol (defined)    |
-| `v`  | Weak object (undefined)  |
-| `w`  | Weak symbol (undefined)  |
-| `i`  | GNU IFUNC                |
-| `u`  | GNU unique               |
-| `?`  | Unknown                  |
+| Char | Meaning          | Char | Meaning                 |
+|------|------------------|------|-------------------------|
+| `A`  | Absolute         | `U`  | Undefined               |
+| `B`  | BSS              | `V`  | Weak object (defined)   |
+| `C`  | Common           | `W`  | Weak symbol (defined)   |
+| `D`  | Initialized data | `v`  | Weak object (undefined) |
+| `N`  | Debug            | `w`  | Weak symbol (undefined) |
+| `R`  | Read-only data   | `i`  | GNU IFUNC               |
+| `T`  | Text             | `u`  | GNU unique              |
+| `?`  | Unknown          |      |                         |
 
-A lowercase letter marks a local (non-external) symbol.
+Lowercase marks a local symbol.
 
-## Error handling
+## Errors
 
-- An unreadable file or unknown format prints to `stderr`; the remaining
-  operands are still processed.
-- An invalid option prints to `stderr` and exits.
-- A file with no symbol table is a warning, not a failure: the exit status
-  stays 0, matching `nm`.
-- Corrupted objects are rejected with a message. Every offset, length and
-  string-table index taken from the file is bounds-checked against the mapping
-  first, so malformed input cannot lead to a read outside it.
+A bad file or format prints to `stderr` and the remaining operands are still
+processed; an invalid option exits. A missing symbol table is a warning and
+still exits 0, matching `nm`.
 
 ## How to test
 
-There is no test suite in the repository; `ft_nm` is verified by comparing it
-against the system `nm`, which is the reference the subject asks it to match.
-
-`LC_ALL=C` matters and must be set on **both** commands. GNU `nm` sorts with
-`strcoll()`, so in a UTF-8 locale it orders symbols case-insensitively and
-ignores punctuation, while `ft_nm` sorts with `strcmp()`. Setting the locale on
-the surrounding `diff` instead of on each command is not enough and will show
-spurious differences.
-
-Compare a single file:
+No suite is included; `ft_nm` is checked against the system `nm`. Both sort
+through the locale, so the comparison holds in any locale — including
+`pt_BR.UTF-8`, where collation differs sharply from byte order.
 
 ```bash
-diff <(LC_ALL=C nm ft_nm) <(LC_ALL=C ./ft_nm ft_nm) && echo match
-```
+# one file
+diff <(nm ft_nm) <(./ft_nm ft_nm) && echo match
 
-Compare every flag combination over a set of files:
-
-```bash
+# every flag, over any unstripped ELF files
 for f in /usr/lib64/crt*.o ./ft_nm; do
   for fl in -a -g -u -r -p -agru ""; do
-    diff <(LC_ALL=C nm $fl "$f" 2>/dev/null) \
-         <(LC_ALL=C ./ft_nm $fl "$f" 2>/dev/null) >/dev/null \
+    diff <(nm $fl "$f" 2>/dev/null) <(./ft_nm $fl "$f" 2>/dev/null) >/dev/null \
       || echo "MISMATCH [$fl] $f"
   done
 done
+
+# and under a collating locale
+LC_ALL=pt_BR.UTF-8 diff <(nm ft_nm) <(./ft_nm ft_nm) && echo match
 ```
 
-Widen it to whatever unstripped ELF files the system has — `/usr/lib64/*.o`,
-`/usr/lib/*.so.*`, anything you compiled yourself. Note that `nm` and `ft_nm`
-differ deliberately in their `stderr` prefix (`nm:` versus `ft_nm:`), which the
-subject permits, so compare standard output only.
+Compare stdout only: the `nm:`/`ft_nm:` prefix on `stderr` differs by design.
 
-Check that malformed input is rejected rather than crashing:
+Malformed input must be rejected, never crash:
 
 ```bash
-head -c 64 /usr/lib64/crt1.o > /tmp/trunc.o   # truncated ELF
-./ft_nm /tmp/trunc.o; echo "exit $?"          # message, exit 1, no signal
-printf 'not an elf file' > /tmp/plain.txt
-./ft_nm /tmp/plain.txt /usr/lib64/crt1.o      # bad file, then keeps going
-./ft_nm -z ft_nm                              # invalid option
+head -c 64 /usr/lib64/crt1.o > /tmp/trunc.o && ./ft_nm /tmp/trunc.o
+./ft_nm -z ft_nm                       # invalid option
 ```
 
-A file with no symbol table is a warning and still exits 0, matching `nm`.
-
-For memory errors that a normal build hides — several out-of-bounds reads land
-inside `mmap` page padding and exit cleanly — build with sanitizers:
+Some out-of-bounds reads land in `mmap` page padding and exit cleanly, so
+sanitizers are worth running over truncated and byte-corrupted objects:
 
 ```bash
 clang -Wall -Wextra -Werror -fsanitize=address,undefined -g -o ft_nm_asan src/*.c
-./ft_nm_asan -a /usr/lib64/crt1.o
 ```
 
-Use whichever of `clang` or `gcc` can link `-fsanitize=address,undefined` on
-your machine; the runtime libraries are packaged separately from the compiler
-and are often installed for only one of the two.
-
-Running that over truncated and byte-corrupted copies of a valid object is the
-most effective check on the bounds validation.
+Use whichever of `clang` or `gcc` can link the sanitizer runtimes; they are
+packaged separately and often present for only one.
 
 ## Technical choices
 
-The file is `mmap`ed read-only and never copied; all parsing reads through that
-single mapping, which makes "is this offset inside the file?" the one check
-that has to be right. `elf_in_range()` is that check, and it subtracts rather
-than adds so a hostile offset cannot wrap the comparison.
-
-The 32- and 64-bit paths are kept as separate source files rather than unified
-behind macros. `Elf32_Sym` and `Elf64_Sym` differ in field order, not just
-width, so a shared implementation would need conditionals at every access; two
-explicit readers are longer but each one is straightforward to audit.
-
-Symbol sorting uses `strcmp()`, which matches GNU `nm` under `LC_ALL=C`. GNU
-`nm` itself sorts with `strcoll()`, so in another locale its order is
-locale-dependent and will differ.
+- The file is `mmap`ed read-only and never copied, so "is this offset inside
+  the file?" is the one check that must be right. `elf_in_range()` subtracts
+  rather than adds, so a hostile offset cannot wrap the comparison.
+- The 32- and 64-bit readers are separate files. `Elf32_Sym` and `Elf64_Sym`
+  differ in field *order*, not just width, so sharing code would mean a
+  conditional at every access; two plain readers are easier to audit.
+- `main()` calls `setlocale(LC_ALL, "")` and sorting uses `strcoll()`, as GNU
+  `nm` does. A C program starts in the `"C"` locale, where `strcoll()` is just
+  `strcmp()`, so without the `setlocale()` call the sort would silently stay
+  byte-ordered and diverge from `nm` in any collating locale.
 
 ## Resources
 
-Reference material used for the ELF format and `nm`'s behaviour:
-
-- `man 1 nm` and `man 5 elf`
-- `/usr/include/elf.h` — the authoritative structure and constant definitions
-  on the target system
-- [Tool Interface Standard (TIS) Executable and Linking Format (ELF)
-  Specification, v1.2](https://refspecs.linuxfoundation.org/elf/elf.pdf)
-- [System V ABI — Linux Extensions](https://refspecs.linuxfoundation.org/),
-  and the x86-64 psABI supplement for the 64-bit layout
-- GNU binutils sources (`binutils/nm.c` and the BFD symbol handling), as the
-  reference for which symbols are listed and which type letter each receives
-- *Linkers and Loaders*, John R. Levine — background on symbol tables,
-  relocation and the role of the linker
-- `man 2 mmap`, `man 2 fstat` — file mapping and size handling
+- `man 1 nm`, `man 5 elf`, `man 2 mmap`
+- `/usr/include/elf.h` — the authoritative structures and constants
+- [TIS ELF Specification v1.2](https://refspecs.linuxfoundation.org/elf/elf.pdf)
+  and the [System V ABI](https://refspecs.linuxfoundation.org/) x86-64 supplement
+- GNU binutils (`binutils/nm.c`, BFD) — reference for symbol selection and
+  type letters
+- *Linkers and Loaders*, John R. Levine — symbol tables and relocation
 
 ### Use of AI
 
-AI (Claude) was used as an assistant on this project, in three areas:
+AI (Claude) was used in three areas:
 
-- **Tests.** Building a differential harness that compared `ft_nm`'s output
-  against the system `nm` across system binaries, object files and shared
-  libraries under every flag combination, and fuzzing the parser with truncated
-  and byte-corrupted ELF files under AddressSanitizer and
-  UndefinedBehaviorSanitizer. This was used to check the implementation; it is
-  not part of the submitted code.
-- **Document review.** Reviewing and editing this README and the explanatory
-  comments in the source files for accuracy and clarity.
-- **Explanations of `nm` internals.** Clarifying points of behaviour that the
-  manual page leaves implicit — how the type letter is derived from a section's
-  flags, why section symbols carry an `st_name` of zero and must be named from
-  the section header string table, and why the reserved symbol at index 0 is
-  skipped by position rather than by its empty name.
+- **Tests** — a differential harness comparing output against the system `nm`
+  across binaries and flag combinations, plus fuzzing with corrupted ELF files
+  under ASan/UBSan. Used to check the work, not part of the submission.
+- **Document review** — editing this README and the source comments.
+- **Explanations of `nm` internals** — behaviour the man page leaves implicit:
+  how the type letter derives from section flags, why section symbols carry
+  `st_name == 0`, and why symbol index 0 is skipped by position.
 
 The implementation is my own. Every explanation was checked against the ELF
-specification and the observed behaviour of the system `nm` before being acted
-on, and I can explain and defend each part of the design.
+specification and the observed behaviour of `nm` before being acted on.
 
 ## Author
 

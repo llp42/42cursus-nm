@@ -15,6 +15,7 @@
 
 #include "ft_nm.h"
 
+#include <locale.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -110,6 +111,7 @@ int main(int argc, char **argv)
 	bool show_name;
 
 	memset(&nm, 0, sizeof(t_nm));
+	setlocale(LC_ALL, "");
 	if (parse_flags(argc, argv, &nm) < 0)
 		return (1);
 	if (validate_flags(&nm) < 0)
