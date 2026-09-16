@@ -70,8 +70,7 @@ static int elf_load_symtab64(t_file *file, const Elf64_Ehdr *ehdr, t_symtab64 *s
 	if (ehdr->e_shstrndx < ehdr->e_shnum)
 	{
 		shstrtab = &shdrs[ehdr->e_shstrndx];
-		if (shstrtab->sh_size == 0
-		    || !elf_in_range(file, shstrtab->sh_offset, shstrtab->sh_size))
+		if (shstrtab->sh_size == 0 || !elf_in_range(file, shstrtab->sh_offset, shstrtab->sh_size))
 			return (ELF_BAD);
 		st->shstrtab = (const char *)file->data + shstrtab->sh_offset;
 		st->shstrtab_size = shstrtab->sh_size;
