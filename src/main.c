@@ -72,14 +72,14 @@ static int parse_flags(int argc, char **argv, t_nm *nm)
  * With more than one operand nm labels each one. Only files it can actually
  * read get a label.
  */
-static int process_file(const char *path, t_nm *nm, bool show_name)
+static int process_file(const char *path, t_nm *nm)
 {
 	t_file file;
 	int ret;
 
 	if (file_open(&file, path) < 0)
 		return (1);
-	if (show_name && is_file_elf(&file))
+	if (nm->operand_count > 1 && is_file_elf(&file))
 		printf("\n%s:\n", path);
 	ret = elf_parse(nm, &file);
 	file_close(&file);
@@ -107,8 +107,6 @@ int main(int argc, char **argv)
 	t_nm nm;
 	int i;
 	int ret;
-	bool has_operand;
-	bool show_name;
 
 	memset(&nm, 0, sizeof(t_nm));
 	setlocale(LC_ALL, "");
@@ -116,21 +114,16 @@ int main(int argc, char **argv)
 		return (1);
 	if (validate_flags(&nm) < 0)
 		return (1);
+	nm.operand_count = count_operands(argc, argv);
+	if (nm.operand_count == 0)
+		return (process_file("a.out", &nm) != 0);
 	ret = 0;
-	show_name = count_operands(argc, argv) > 1;
-	has_operand = false;
 	i = 1;
 	while (i < argc)
 	{
-		if (!is_flag(argv[i]))
-		{
-			has_operand = true;
-			if (process_file(argv[i], &nm, show_name) != 0)
-				ret = 1;
-		}
+		if (!is_flag(argv[i]) && process_file(argv[i], &nm) != 0)
+			ret = 1;
 		i++;
 	}
-	if (!has_operand && process_file("a.out", &nm, false) != 0)
-		ret = 1;
 	return (ret);
 }

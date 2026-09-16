@@ -76,6 +76,7 @@ typedef struct s_nm
 	bool undefined_only; /* -u: show only undefined symbols */
 	bool reverse_sort;   /* -r: sort in reverse order */
 	bool no_sort;        /* -p: do not sort */
+	int operand_count;   /* file operands given; more than one labels each file */
 } t_nm;
 
 int validate_flags(t_nm *nm);
