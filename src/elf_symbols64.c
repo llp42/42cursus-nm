@@ -4,8 +4,8 @@
  * File: elf_symbols64.c
  *
  * Symbol handling for ELF64 images: locates the symbol table and its
- * string table, filters entries per the -g/-u flags, sorts them and
- * prints the result. Mirror of elf_symbols32.c.
+ * string table, filters entries per the -g/-u flags, classifies
+ * them, sorts them and prints the result. Mirror of elf_symbols32.c.
  *
  * Author: Leonardo Lopes Pereira
  * Email: lepereir@student.42.fr
@@ -139,6 +139,44 @@ static bool symbol_listed64(const t_symtab64 *st, const Elf64_Sym *sym, t_nm *nm
 	if (nm->undefined_only && sym->st_shndx != SHN_UNDEF)
 		return (false);
 	return (true);
+}
+
+/*
+ * Order follows bfd_decode_symclass: common and undefined first, weak next,
+ * section lookup last -- reordering turns a defined weak object (V) into an
+ * undefined one (v). Only section-derived letters and A lowercase for locals.
+ */
+static char get_symbol_type64(const Elf64_Sym *sym, const Elf64_Shdr *shdrs, uint16_t shnum)
+{
+	uint8_t bind;
+	uint8_t type;
+	char c;
+
+	bind = ELF64_ST_BIND(sym->st_info);
+	type = ELF64_ST_TYPE(sym->st_info);
+	if (sym->st_shndx == SHN_COMMON)
+		return ('C');
+	if (sym->st_shndx == SHN_UNDEF)
+	{
+		if (bind == STB_WEAK)
+			return (type == STT_OBJECT ? 'v' : 'w');
+		return ('U');
+	}
+	if (type == STT_GNU_IFUNC)
+		return ('i');
+	if (bind == STB_WEAK)
+		return (type == STT_OBJECT ? 'V' : 'W');
+	if (bind == STB_GNU_UNIQUE)
+		return ('u');
+	if (sym->st_shndx == SHN_ABS)
+		c = 'A';
+	else if (sym->st_shndx < shnum)
+		c = section_type_char(shdrs[sym->st_shndx].sh_flags, shdrs[sym->st_shndx].sh_type);
+	else
+		return ('?');
+	if (bind == STB_LOCAL)
+		c += 'a' - 'A';
+	return (c);
 }
 
 static int collect_symbols64(const t_symtab64 *st, t_nm *nm, t_symbol **out)

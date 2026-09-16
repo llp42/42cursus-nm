@@ -93,8 +93,8 @@ bool is_file_elf(t_file *file);
 /* True when [offset, offset + size) lies wholly inside the mapped file. */
 bool elf_in_range(const t_file *file, uint64_t offset, uint64_t size);
 
-char get_symbol_type32(const Elf32_Sym *sym, const Elf32_Shdr *shdrs, uint16_t shnum);
-char get_symbol_type64(const Elf64_Sym *sym, const Elf64_Shdr *shdrs, uint16_t shnum);
+char section_type_char(uint64_t flags, uint32_t sh_type);
+
 int symbol_cmp(const void *a, const void *b);
 int symbol_cmp_reverse(const void *a, const void *b);
 
