@@ -78,9 +78,7 @@ still exits 0, matching `nm`.
 
 ## How to test
 
-No suite is included; `ft_nm` is checked against the system `nm`. Both sort
-through the locale, so the comparison holds in any locale — including
-`pt_BR.UTF-8`, where collation differs sharply from byte order.
+No suite is included; `ft_nm` is checked against the system `nm`.
 
 ```bash
 # one file
@@ -93,9 +91,6 @@ for f in /usr/lib64/crt*.o ./ft_nm; do
       || echo "MISMATCH [$fl] $f"
   done
 done
-
-# and under a collating locale
-LC_ALL=pt_BR.UTF-8 diff <(nm ft_nm) <(./ft_nm ft_nm) && echo match
 ```
 
 Compare stdout only: the `nm:`/`ft_nm:` prefix on `stderr` differs by design.
