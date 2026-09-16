@@ -21,8 +21,10 @@ Handles ELF32 and ELF64 — executables, object files and shared libraries.
 ## Instructions
 
 ```bash
-make        # compile           make fclean # ... and the binary
-make clean  # remove objects    make re     # rebuild
+make all     # compile (default target)
+make clean   # remove the object files
+make fclean  # remove the object files and the binary
+make re      # fclean, then all
 ```
 
 Only a C compiler and the standard library are needed. Builds with
